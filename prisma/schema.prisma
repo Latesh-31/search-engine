@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("SHADOW_DATABASE_URL")
+}
+
+enum ReviewStatus {
+  DRAFT
+  PENDING
+  PUBLISHED
+  REJECTED
+}
+
+enum ActivityType {
+  VIEW
+  HELPFUL
+  SHARE
+  COMMENT
+  CLICK
+}
+
+enum BoostType {
+  FEATURE
+  PRIORITY
+  HIGHLIGHT
+}
+
+model User {
+  id             String                  @id @default(uuid())
+  email          String                  @unique
+  displayName    String
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  reviews        Review[]
+  activityCounts ReviewActivityMetric[]
+  boostPurchases BoostPurchase[]
+}
+
+model Review {
+  id             String                  @id @default(uuid())
+  userId         String
+  categoryTierId String?
+  title          String
+  content        String
+  rating         Int
+  status         ReviewStatus            @default(PENDING)
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  user           User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryTier   CategoryTier?           @relation(fields: [categoryTierId], references: [id], onDelete: SetNull)
+  activityCounts ReviewActivityMetric[]
+  boostPurchases BoostPurchase[]
+  boostUsages    BoostUsage[]
+
+  @@index([userId])
+  @@index([categoryTierId])
+}
+
+model ReviewActivityMetric {
+  id        String       @id @default(uuid())
+  reviewId  String
+  userId    String?
+  type      ActivityType
+  quantity  Int          @default(1)
+  notes     String?
+  recordedAt DateTime    @default(now())
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([reviewId])
+  @@index([userId])
+  @@index([reviewId, type])
+}
+
+model BoostPurchase {
+  id               String      @id @default(uuid())
+  userId           String
+  reviewId         String?
+  categoryTierId   String?
+  boostType        BoostType
+  creditsPurchased Int
+  creditsConsumed  Int         @default(0)
+  activatedAt      DateTime?
+  expiresAt        DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  review       Review?       @relation(fields: [reviewId], references: [id], onDelete: SetNull)
+  categoryTier CategoryTier? @relation(fields: [categoryTierId], references: [id], onDelete: SetNull)
+  usages       BoostUsage[]
+
+  @@index([userId])
+  @@index([reviewId])
+  @@index([categoryTierId])
+}
+
+model BoostUsage {
+  id              String        @id @default(uuid())
+  boostPurchaseId String
+  reviewId        String?
+  quantity        Int           @default(1)
+  appliedAt       DateTime      @default(now())
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  boostPurchase BoostPurchase @relation(fields: [boostPurchaseId], references: [id], onDelete: Cascade)
+  review        Review?       @relation(fields: [reviewId], references: [id], onDelete: SetNull)
+
+  @@index([boostPurchaseId])
+  @@index([reviewId])
+}
+
+model CategoryTier {
+  id          String           @id @default(uuid())
+  name        String
+  slug        String           @unique
+  description String?
+  priority    Int              @default(0)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  reviews        Review[]
+  boostPurchases BoostPurchase[]
+}

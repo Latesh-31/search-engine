@@ -15,6 +15,16 @@ const envSchema = z.object({
   POSTGRES_DB: z.string().min(1).default('search_service'),
   POSTGRES_USER: z.string().min(1).default('search_user'),
   POSTGRES_PASSWORD: z.string().min(1).default('search_password'),
+  DATABASE_URL: z
+    .string()
+    .url({ message: 'DATABASE_URL must be a valid connection string' })
+    .optional()
+    .transform((value) => (value && value.length > 0 ? value : undefined)),
+  SHADOW_DATABASE_URL: z
+    .string()
+    .url({ message: 'SHADOW_DATABASE_URL must be a valid connection string' })
+    .optional()
+    .transform((value) => (value && value.length > 0 ? value : undefined)),
   OPENSEARCH_NODE: z
     .string()
     .url({ message: 'OPENSEARCH_NODE must be a valid URL' })
