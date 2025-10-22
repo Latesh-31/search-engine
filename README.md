@@ -1,59 +1,107 @@
-# OpenSearch Search Engine
+# Search Platform API
 
-This repository contains the foundational setup for a Node.js and TypeScript-based search engine service that integrates with OpenSearch. The project currently provides the initial structure and tooling required to begin development.
+Production-ready Fastify service written in TypeScript that exposes baseline health endpoints and is prepared to integrate with OpenSearch and PostgreSQL. The project includes opinionated tooling for development, testing, linting, and containerized local infrastructure.
 
-## Project Structure
+## Features
 
-```
-├── config/           # Configuration files and utilities
-├── src/              # Application source code
-├── tests/            # Automated tests
-├── .env.example      # Template for environment variables
-├── package.json      # Project metadata and scripts
-├── tsconfig.json     # TypeScript configuration
-└── README.md         # Project documentation
-```
+- ⚡️ [Fastify](https://fastify.dev/) + TypeScript application scaffold
+- ✅ Typed environment management powered by [`zod`](https://github.com/colinhacks/zod) and `dotenv`
+- 🧪 Unit testing via Jest with `ts-jest`
+- 🧹 Code quality tooling: ESLint, Prettier, TypeScript strict mode
+- 🐘 PostgreSQL and 🧭 OpenSearch local stack with Docker Compose
+- ♻️ Health endpoint that aggregates datastore connectivity checks
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 18 or later
-- npm 9 or later
+- Node.js 20+
+- npm 9+
+- Docker & Docker Compose (for running the full stack locally)
 
 ### Installation
 
-1. Install dependencies:
+```bash
+npm install
+```
 
-   ```bash
-   npm install
-   ```
+Copy the example environment file and adjust as needed:
 
-2. Copy the environment template and update the values as needed:
+```bash
+cp .env.example .env
+```
 
-   ```bash
-   cp .env.example .env
-   ```
+### Useful Scripts
 
-3. Start the development server:
+| Script | Description |
+| --- | --- |
+| `npm run dev` | Start the development server with automatic reloads via `tsx watch`. |
+| `npm run build` | Compile TypeScript to JavaScript (`dist/`). |
+| `npm start` | Run the compiled application. |
+| `npm run typecheck` | Perform a type check without emitting files. |
+| `npm test` | Execute the Jest test suite. |
+| `npm run lint` | Run ESLint across `src/` and `tests/`. |
+| `npm run format` | Verify Prettier formatting. |
+| `npm run ci` | Run linting, type checks, and tests (useful for CI pipelines). |
 
-   ```bash
-   npm run dev
-   ```
+## Running Locally
 
-## Available Scripts
+### Development Server Only
 
-- `npm run dev`: Executes the app in development mode using `ts-node`.
-- `npm run build`: Compiles the TypeScript source into JavaScript using `tsc`.
-- `npm start`: Runs the compiled application from the `dist` directory.
-- `npm test`: Placeholder test command.
+```bash
+npm run dev
+```
 
-## Next Steps
+The API listens on `http://localhost:3000` by default. Visit `http://localhost:3000/health` to inspect the aggregated health payload.
 
-- Configure OpenSearch connection settings inside the `config/` directory.
-- Implement core search functionality in the `src/` directory.
-- Add unit and integration tests within the `tests/` directory.
+### Full Stack with Docker Compose
 
-## License
+Spin up the API together with OpenSearch and PostgreSQL:
 
-This project is licensed under the MIT License.
+```bash
+docker compose up --build
+```
+
+This command provisions:
+
+- **api** – Fastify service built from this repository (port `3000`).
+- **postgres** – PostgreSQL 16 database with seeded credentials (port `5432`).
+- **opensearch** – OpenSearch 2.x single-node cluster with security disabled for local development (ports `9200` and `9600`).
+
+Health checks ensure dependent services are available before the API starts. Update the `.env` file if you need to change credentials or network bindings.
+
+To tear everything down:
+
+```bash
+docker compose down --volumes
+```
+
+## Project Structure
+
+```
+├── src/
+│   ├── app.ts              # Fastify application factory
+│   ├── config/env.ts       # Typed environment parsing and validation
+│   ├── routes/health.ts    # Health endpoint implementation
+│   ├── services/           # Connectivity helpers (Postgres/OpenSearch)
+│   └── index.ts            # Application bootstrap entry point
+├── tests/                  # Jest test suites
+├── docker-compose.yml      # Local development stack
+├── Dockerfile              # Production-ready container image
+├── tsconfig*.json          # TypeScript build configurations
+└── ...                     # Linting, formatting, and tooling configs
+```
+
+## Environment Variables
+
+All environment variables are validated on startup. Refer to [`.env.example`](./.env.example) for available settings and defaults.
+
+## Health Endpoint
+
+`GET /health`
+
+Returns an overview of the service status and underlying dependencies. In non-test environments, connection checks attempt to query PostgreSQL and OpenSearch. During automated tests, the checks are intentionally skipped to keep the suite deterministic.
+
+---
+
+Happy building! 🚀
