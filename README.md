@@ -13,6 +13,11 @@ Production-ready Fastify service written in TypeScript that exposes baseline hea
 - 🔐 OpenSearch client with credential file support, TLS validation, and cluster health checks
 - 📄 Managed index templates for reviews and user activity documents with automatic bootstrap
 - ♻️ Health endpoint that aggregates datastore connectivity checks
+- 📊 **OpenTelemetry integration** for metrics (Prometheus) and distributed tracing
+- 🎯 **Centralized error handling** with structured error responses
+- 🔍 **Structured logging** via Pino with request/response correlation
+- 🚦 **Graceful shutdown** handling with proper cleanup of resources
+- 📖 **Comprehensive documentation** for operations and troubleshooting
 
 ## Getting Started
 
@@ -86,9 +91,13 @@ docker compose down --volumes
 ├── src/
 │   ├── app.ts              # Fastify application factory
 │   ├── config/env.ts       # Typed environment parsing and validation
-│   ├── routes/health.ts    # Health endpoint implementation
+│   ├── middleware/         # Centralized error handling and shared utilities
+│   ├── plugins/            # Fastify plugins (observability, validation)
+│   ├── telemetry/          # OpenTelemetry bootstrap helpers
+│   ├── routes/             # HTTP route definitions
 │   ├── services/           # Connectivity helpers (Postgres/OpenSearch)
 │   └── index.ts            # Application bootstrap entry point
+├── docs/                   # Operations and troubleshooting guides
 ├── tests/                  # Jest test suites
 ├── docker-compose.yml      # Local development stack
 ├── Dockerfile              # Production-ready container image
@@ -136,7 +145,38 @@ Local development (Docker Compose) runs OpenSearch without security, so the defa
 
 ## Environment Variables
 
-All environment variables are validated on startup. Refer to [`.env.example`](./.env.example) for available settings and defaults.
+All environment variables are validated on startup. Refer to [`.env.example`](./.env.example) for available settings and defaults. Detailed production configuration guidance (including observability flags) is available in [`docs/OPERATIONS.md`](./docs/OPERATIONS.md).
+
+## Observability & Telemetry
+
+The API ships with cross-cutting instrumentation enabled by default for development (and opt-in for production through `OTEL_ENABLED`).
+
+### Structured logging
+
+- Fastify's Pino logger captures JSON logs with request/response metadata and correlation IDs (`request.id`).
+- Logs are safe for ingestion into ELK, Loki, or any structured logging backend.
+
+### Centralized error handling
+
+- A global error handler normalizes responses into a predictable shape (`statusCode`, `error`, `message`, `requestId`).
+- Validation errors (powered by `zod`) automatically return a `400 ValidationError` with field-level details.
+- Unhandled exceptions are logged and return a sanitized `500 Internal server error` payload in production.
+
+### Metrics
+
+- When `OTEL_ENABLED=true`, Prometheus metrics are exposed at `http://<host>:${OTEL_METRICS_PORT}${OTEL_METRICS_ENDPOINT}` (defaults to `http://localhost:9464/metrics`).
+- Key metrics include `http.server.requests` (request counter) and `http.server.request.duration` (histogram with `ms` unit).
+- Metrics are compatible with Prometheus, Grafana, and Kubernetes `ServiceMonitor` resources.
+
+### Tracing
+
+- Distributed tracing is provided via OpenTelemetry; set `OTEL_EXPORTER_OTLP_ENDPOINT` (and optional `OTEL_EXPORTER_OTLP_HEADERS`) to forward spans to collectors such as Jaeger or Tempo.
+- Spans cover HTTP requests, database operations (via Prisma), OpenSearch calls, and background indexing pipeline work.
+
+### Graceful shutdown
+
+- `SIGINT` and `SIGTERM` signals trigger an orderly shutdown: draining HTTP requests, stopping the indexing pipeline, closing datastore clients, and flushing telemetry exporters.
+- Shutdown progress is logged so platform teams can monitor rollout safety.
 
 ## Health Endpoint
 
@@ -146,7 +186,7 @@ Returns an overview of the service status and underlying dependencies. In non-te
 
 ## Domain Endpoints
 
-All domain endpoints perform input validation with `zod` and persist data through Prisma. Each endpoint responds with structured payloads and meaningful error codes for invalid input, missing resources, or business rule violations.
+All domain endpoints perform input validation via a global `zod`-powered middleware and persist data through Prisma. Centralized error handling ensures consistent responses for invalid input, missing resources, or business rule violations.
 
 | Method | Path | Description |
 | --- | --- | --- |
@@ -250,6 +290,21 @@ campaigns and engagement totals. Results are enriched with aggregation buckets f
   }
 }
 ```
+
+## Deployment & Operations
+
+For production deployments, consult the following guides:
+
+- **[Operations Guide](./docs/OPERATIONS.md)** - Deployment strategies (Docker, Kubernetes), configuration best practices, monitoring setup, security considerations, and maintenance procedures.
+- **[Troubleshooting Guide](./docs/TROUBLESHOOTING.md)** - Quick reference for diagnosing and resolving common issues related to startup, runtime errors, performance, and external service connectivity.
+
+Key production features:
+
+- **Graceful shutdown**: Handles `SIGINT`/`SIGTERM` signals to drain requests, close connections, and flush telemetry before exit.
+- **Health checks**: `GET /health` endpoint provides detailed status for Kubernetes liveness/readiness probes and load balancer health checks.
+- **Observability**: OpenTelemetry integration for metrics (Prometheus) and distributed tracing (Jaeger/Tempo).
+- **Secrets management**: Supports Docker secrets via `*_FILE` environment variables for sensitive credentials.
+- **Cluster-ready**: Stateless design enables horizontal scaling and rolling deployments without downtime.
 
 ---
 
