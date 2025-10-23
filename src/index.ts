@@ -69,6 +69,11 @@ const start = async () => {
   });
 
   try {
+    const bootstrapResults = await bootstrapOpenSearchInfrastructure(app.log);
+    if (bootstrapResults.length > 0) {
+      app.log.info({ opensearch: bootstrapResults }, 'OpenSearch infrastructure ensured');
+    }
+
     await app.listen({ port: env.PORT, host: env.HOST });
     app.log.info({ port: env.PORT }, 'Server is listening');
   } catch (error) {
