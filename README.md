@@ -10,6 +10,8 @@ Production-ready Fastify service written in TypeScript that exposes baseline hea
 - 🧹 Code quality tooling: ESLint, Prettier, TypeScript strict mode
 - 🗃️ Prisma ORM-powered Postgres schema with repositories and services for users, reviews, activities, boosts, and category tiers
 - 🐘 PostgreSQL and 🧭 OpenSearch local stack with Docker Compose
+- 🔐 OpenSearch client with credential file support, TLS validation, and cluster health checks
+- 📄 Managed index templates for reviews and user activity documents with automatic bootstrap
 - ♻️ Health endpoint that aggregates datastore connectivity checks
 
 ## Getting Started
@@ -37,6 +39,7 @@ cp .env.example .env
 | Script | Description |
 | --- | --- |
 | `npm run dev` | Start the development server with automatic reloads via `tsx watch`. |
+| `npm run opensearch:bootstrap` | Apply OpenSearch templates and ensure indices without starting the server. |
 | `npm run build` | Compile TypeScript to JavaScript (`dist/`). |
 | `npm start` | Run the compiled application. |
 | `npm run typecheck` | Perform a type check without emitting files. |
@@ -92,6 +95,44 @@ docker compose down --volumes
 ├── tsconfig*.json          # TypeScript build configurations
 └── ...                     # Linting, formatting, and tooling configs
 ```
+
+## OpenSearch Integration
+
+### Client configuration
+
+- Credentials can be supplied directly via `OPENSEARCH_USERNAME`/`OPENSEARCH_PASSWORD` or mounted securely with the corresponding `*_FILE` environment variables that read from Docker secrets.
+- Managed clusters that require TLS can provide a certificate authority with `OPENSEARCH_CA_CERT_PATH` and toggle strict verification with `OPENSEARCH_TLS_REJECT_UNAUTHORIZED`.
+- The same client powers runtime health checks, so any connectivity or credential issues surface through the `/health` endpoint.
+
+### Index templates & analyzers
+
+The service manages two index templates and matching aliases on startup:
+
+- **Reviews** (`reviews-template-v1`, alias `reviews`, pattern `reviews-*`)
+  - `title` and `content` leverage a folded analyzer for case-insensitive matching, with keyword and autocomplete multi-fields for exact matches and prefix search.
+  - `rating`, `helpfulVoteCount`, `viewCount`, and `averageSentiment` are numeric fields optimized for aggregations and scoring.
+  - `status`, `userId`, `categoryTierId`, `keywords`, and `lastActivityAt` provide keyword/date fields for filtering and faceting.
+- **Review activities** (`review-activities-template-v1`, alias `review-activities`, pattern `review-activities-*`)
+  - Captures `quantity` as an integer alongside rolling aggregation buckets (`aggregation.rolling7d`, `aggregation.rolling30d`, `aggregation.total`).
+  - Stores `type`, `userId`, and `reviewId` as normalized keywords for breakdowns and unique counts.
+  - Indexes `notes` with both full-text search and keyword facets, while preserving `recordedAt`/`createdAt`/`updatedAt` timestamps for time-series queries.
+
+Both templates share folded and autocomplete analyzers to enable intuitive relevance and type-ahead behaviour.
+
+### Bootstrap workflow
+
+- On service startup the API calls `bootstrapOpenSearchInfrastructure` to apply templates and create initial backing indices (`reviews-v1`, `review-activities-v1`) with write aliases when needed.
+- Bootstrapping is skipped automatically during tests and can be disabled by setting `OPENSEARCH_BOOTSTRAP_ENABLED=false` for environments where infrastructure is managed externally.
+- You can run the process manually without starting the server via `npm run opensearch:bootstrap`, which performs the same checks and exits once the cluster is prepared.
+
+### Cloud vs. self-hosted clusters
+
+Local development (Docker Compose) runs OpenSearch without security, so the defaults in `.env.example` work out of the box. For cloud-managed clusters:
+
+1. Point `OPENSEARCH_NODE` at the managed HTTPS endpoint.
+2. Provide credentials either inline (`OPENSEARCH_USERNAME`/`OPENSEARCH_PASSWORD`) or through mounted secret files (`OPENSEARCH_USERNAME_FILE`/`OPENSEARCH_PASSWORD_FILE`).
+3. Supply the provider CA certificate with `OPENSEARCH_CA_CERT_PATH` and set `OPENSEARCH_TLS_REJECT_UNAUTHORIZED=true` to enforce validation.
+4. Optionally disable automatic bootstrapping if index lifecycle is controlled by infrastructure tooling.
 
 ## Environment Variables
 

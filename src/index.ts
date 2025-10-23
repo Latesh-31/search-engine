@@ -1,5 +1,6 @@
 import env from './config/env';
 import { buildApp } from './app';
+import { bootstrapOpenSearchInfrastructure } from './services/opensearch';
 
 const start = async () => {
   const app = buildApp();
@@ -19,6 +20,11 @@ const start = async () => {
   });
 
   try {
+    const bootstrapResults = await bootstrapOpenSearchInfrastructure(app.log);
+    if (bootstrapResults.length > 0) {
+      app.log.info({ opensearch: bootstrapResults }, 'OpenSearch infrastructure ensured');
+    }
+
     await app.listen({ port: env.PORT, host: env.HOST });
     app.log.info({ port: env.PORT }, 'Server is listening');
   } catch (error) {
