@@ -37,6 +37,26 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((value) => (value && value.length > 0 ? value : undefined)),
+  OPENSEARCH_USERNAME_FILE: z
+    .string()
+    .optional()
+    .transform((value) => (value && value.length > 0 ? value : undefined)),
+  OPENSEARCH_PASSWORD_FILE: z
+    .string()
+    .optional()
+    .transform((value) => (value && value.length > 0 ? value : undefined)),
+  OPENSEARCH_CA_CERT_PATH: z
+    .string()
+    .optional()
+    .transform((value) => (value && value.length > 0 ? value : undefined)),
+  OPENSEARCH_TLS_REJECT_UNAUTHORIZED: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((value) => (value === undefined ? undefined : value === 'true')),
+  OPENSEARCH_BOOTSTRAP_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
 });
 
 const parsed = envSchema.safeParse(process.env);

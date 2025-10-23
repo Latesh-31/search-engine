@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
+    "opensearch:bootstrap": "tsx src/scripts/bootstrapOpenSearch.ts",
     "lint": "eslint \"{src,tests}/**/*.{ts,tsx}\"",
     "lint:fix": "npm run lint -- --fix",
     "format": "prettier --check \"**/*.{js,ts,json,md,yml,yaml}\"",
