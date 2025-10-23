@@ -114,7 +114,21 @@ export const getOpenSearchClient = (): Client => {
   return client;
 };
 
-export const getOpenSearchClient = (): Client => getClient();
+export const bootstrapOpenSearchInfrastructure = async (
+  logger?: LoggerLike,
+): Promise<BootstrapResult[]> => {
+  if (!env.OPENSEARCH_BOOTSTRAP_ENABLED) {
+    logger?.info?.('OpenSearch bootstrap disabled via configuration flag.');
+    return [];
+  }
+
+  if (env.NODE_ENV === 'test') {
+    return [];
+  }
+
+  const openSearchClient = getOpenSearchClient();
+  return ensureOpenSearchInfrastructure(openSearchClient, logger);
+};
 
 export const checkOpenSearchConnection = async (): Promise<ComponentHealth> => {
   if (env.NODE_ENV === 'test') {

@@ -172,11 +172,84 @@ All domain endpoints perform input validation with `zod` and persist data throug
 | `DELETE` | `/boosts/:id` | Remove a boost purchase |
 | `GET` | `/boosts/:id/usage` | List usage entries for a boost purchase |
 | `POST` | `/boosts/:id/usage` | Record usage for a boost purchase |
+| `POST` | `/search/reviews` | Search the review index with boosting, filters, and aggregations |
 | `GET` | `/category-tiers` | List category tiers |
 | `POST` | `/category-tiers` | Create a category tier |
 | `GET` | `/category-tiers/:id` | Retrieve a category tier |
 | `PUT` | `/category-tiers/:id` | Update a category tier |
 | `DELETE` | `/category-tiers/:id` | Remove a category tier |
+
+## Search API
+
+`POST /search/reviews` blends full-text review search with composite boosting. The route issues a
+multi-match query across review titles and content, then applies function-score boosts for active ad
+campaigns and engagement totals. Results are enriched with aggregation buckets for analytics.
+
+### Request body
+
+```json
+{
+  "query": "wireless headphones",
+  "page": 1,
+  "pageSize": 10,
+  "sort": "relevance",
+  "filters": {
+    "categoryTierLevels": ["higher", "medium"],
+    "adBoostStatuses": ["boosted"]
+  }
+}
+```
+
+* `query` *(optional)* – free-text search terms matched against review titles and content.
+* `page`/`pageSize` – 1-indexed pagination with `pageSize` capped at 100.
+* `sort` *(optional)* – `relevance` (default) uses OpenSearch scoring; `newest` sorts by creation
+  date.
+* `filters.categoryTierLevels` *(optional)* – restrict results to `lower` (priority ≤ 33),
+  `medium` (34–66), or `higher` (≥ 67) category tiers derived from stored priorities.
+* `filters.adBoostStatuses` *(optional)* – limit to `boosted` (remaining ad credits) or `organic`
+  reviews.
+
+### Response payload
+
+```json
+{
+  "data": {
+    "page": 1,
+    "pageSize": 10,
+    "total": 42,
+    "took": 5,
+    "results": [
+      {
+        "id": "review-id",
+        "score": 6.17,
+        "review": {
+          "id": "review-id",
+          "title": "Wireless Headphones Review",
+          "content": "Great separation and long-lasting battery.",
+          "status": "PUBLISHED",
+          "categoryTierLevel": "higher",
+          "boostCreditsRemaining": 8,
+          "adBoostStatus": "boosted",
+          "activityTotalQuantity": 54,
+          "createdAt": "2024-02-01T00:00:00.000Z",
+          "updatedAt": "2024-02-02T00:00:00.000Z"
+        }
+      }
+    ],
+    "aggregations": {
+      "categoryTierLevels": [
+        { "key": "higher", "docCount": 21 },
+        { "key": "medium", "docCount": 14 },
+        { "key": "lower", "docCount": 7 }
+      ],
+      "adBoostStatus": [
+        { "key": "boosted", "docCount": 18 },
+        { "key": "organic", "docCount": 24 }
+      ]
+    }
+  }
+}
+```
 
 ---
 
