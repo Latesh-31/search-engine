@@ -27,6 +27,8 @@ const getClient = (): Client => {
   return client;
 };
 
+export const getOpenSearchClient = (): Client => getClient();
+
 export const checkOpenSearchConnection = async (): Promise<ComponentHealth> => {
   if (env.NODE_ENV === 'test') {
     return {
