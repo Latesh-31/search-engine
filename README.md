@@ -8,6 +8,7 @@ Production-ready Fastify service written in TypeScript that exposes baseline hea
 - ✅ Typed environment management powered by [`zod`](https://github.com/colinhacks/zod) and `dotenv`
 - 🧪 Unit testing via Jest with `ts-jest`
 - 🧹 Code quality tooling: ESLint, Prettier, TypeScript strict mode
+- 🗃️ Prisma ORM-powered Postgres schema with repositories and services for users, reviews, activities, boosts, and category tiers
 - 🐘 PostgreSQL and 🧭 OpenSearch local stack with Docker Compose
 - ♻️ Health endpoint that aggregates datastore connectivity checks
 
@@ -101,6 +102,40 @@ All environment variables are validated on startup. Refer to [`.env.example`](./
 `GET /health`
 
 Returns an overview of the service status and underlying dependencies. In non-test environments, connection checks attempt to query PostgreSQL and OpenSearch. During automated tests, the checks are intentionally skipped to keep the suite deterministic.
+
+## Domain Endpoints
+
+All domain endpoints perform input validation with `zod` and persist data through Prisma. Each endpoint responds with structured payloads and meaningful error codes for invalid input, missing resources, or business rule violations.
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/users` | List users |
+| `POST` | `/users` | Create a user |
+| `GET` | `/users/:id` | Retrieve a user |
+| `PUT` | `/users/:id` | Update a user |
+| `DELETE` | `/users/:id` | Remove a user |
+| `GET` | `/reviews` | List reviews with associations |
+| `POST` | `/reviews` | Create a review |
+| `GET` | `/reviews/:id` | Retrieve a review |
+| `PUT` | `/reviews/:id` | Update a review |
+| `DELETE` | `/reviews/:id` | Remove a review |
+| `GET` | `/review-activities?reviewId=...` | List activity metrics for a review |
+| `POST` | `/review-activities` | Record activity metrics |
+| `GET` | `/review-activities/:id` | Retrieve an activity metric |
+| `PUT` | `/review-activities/:id` | Update an activity metric |
+| `DELETE` | `/review-activities/:id` | Remove an activity metric |
+| `GET` | `/boosts` | List boost purchases with usage |
+| `POST` | `/boosts` | Create a boost purchase |
+| `GET` | `/boosts/:id` | Retrieve a boost purchase |
+| `PUT` | `/boosts/:id` | Update a boost purchase |
+| `DELETE` | `/boosts/:id` | Remove a boost purchase |
+| `GET` | `/boosts/:id/usage` | List usage entries for a boost purchase |
+| `POST` | `/boosts/:id/usage` | Record usage for a boost purchase |
+| `GET` | `/category-tiers` | List category tiers |
+| `POST` | `/category-tiers` | Create a category tier |
+| `GET` | `/category-tiers/:id` | Retrieve a category tier |
+| `PUT` | `/category-tiers/:id` | Update a category tier |
+| `DELETE` | `/category-tiers/:id` | Remove a category tier |
 
 ---
 
