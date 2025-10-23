@@ -17,7 +17,7 @@ export interface CategoryTierRepository {
   deleteCategoryTier(id: string): Promise<CategoryTier | null>;
 }
 
-const handleNotFound = <T>(error: unknown): null | never => {
+const handleNotFound = (error: unknown): null | never => {
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
     return null;
   }
@@ -41,14 +41,14 @@ export const createCategoryTierRepository = (
     try {
       return await prisma.categoryTier.update({ where: { id }, data });
     } catch (error) {
-      return handleNotFound<CategoryTier>(error);
+      return handleNotFound(error);
     }
   },
   async deleteCategoryTier(id) {
     try {
       return await prisma.categoryTier.delete({ where: { id } });
     } catch (error) {
-      return handleNotFound<CategoryTier>(error);
+      return handleNotFound(error);
     }
   },
 });

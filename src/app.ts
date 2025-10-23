@@ -7,6 +7,7 @@ import categoryTierRoutes from './routes/categoryTiers';
 import healthRoutes from './routes/health';
 import reviewActivityRoutes from './routes/reviewActivities';
 import reviewRoutes from './routes/reviews';
+import scoringRoutes from './routes/scoring';
 import userRoutes from './routes/users';
 import { createServices } from './services/domain';
 import { closeOpenSearchClient } from './services/opensearch';
@@ -29,12 +30,13 @@ export const buildApp = (): FastifyInstance => {
     service: 'search-platform-api',
   }));
 
-  app.register(healthRoutes, { prefix: '/health' });
-  app.register(userRoutes, { prefix: '/users', services });
-  app.register(reviewRoutes, { prefix: '/reviews', services });
-  app.register(reviewActivityRoutes, { prefix: '/review-activities', services });
-  app.register(boostRoutes, { prefix: '/boosts', services });
-  app.register(categoryTierRoutes, { prefix: '/category-tiers', services });
+  void app.register(healthRoutes, { prefix: '/health' });
+  void app.register(userRoutes, { prefix: '/users', services });
+  void app.register(reviewRoutes, { prefix: '/reviews', services });
+  void app.register(reviewActivityRoutes, { prefix: '/review-activities', services });
+  void app.register(boostRoutes, { prefix: '/boosts', services });
+  void app.register(categoryTierRoutes, { prefix: '/category-tiers', services });
+  void app.register(scoringRoutes, { prefix: '/scoring', services });
 
   app.addHook('onClose', async () => {
     await Promise.allSettled([closePostgresPool(), closeOpenSearchClient(), closePrismaClient()]);

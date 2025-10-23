@@ -1,8 +1,8 @@
 import { Client } from '@opensearch-project/opensearch';
 
-import { IndexingLogger } from './types';
 import { buildReviewDocument } from './reviewDocumentBuilder';
 import { ReviewIndexingRepository } from './reviewIndexingRepository';
+import { IndexingLogger } from './types';
 
 export interface ReviewBackfillOptions {
   indexName: string;
@@ -18,20 +18,21 @@ export interface ReviewBackfillResult {
   batches: number;
 }
 
-const extractBulkItemError = (item: Record<string, any>): string | undefined => {
+const extractBulkItemError = (item: Record<string, unknown>): string | undefined => {
   if (!item) {
     return undefined;
   }
 
-  const operation = item.index ?? item.create ?? item.update ?? item.delete;
-  if (operation && typeof operation === 'object' && operation.error) {
-    if (typeof operation.error === 'string') {
-      return operation.error;
+  const operation = (item.index ?? item.create ?? item.update ?? item.delete) as Record<string, unknown> | undefined;
+  if (operation && typeof operation === 'object' && 'error' in operation) {
+    const error = operation.error;
+    if (typeof error === 'string') {
+      return error;
     }
-    if (operation.error && typeof operation.error.reason === 'string') {
-      return operation.error.reason;
+    if (error && typeof error === 'object' && 'reason' in error && typeof (error as Record<string, unknown>).reason === 'string') {
+      return (error as Record<string, unknown>).reason as string;
     }
-    return JSON.stringify(operation.error);
+    return JSON.stringify(error);
   }
 
   return undefined;
@@ -66,8 +67,10 @@ export const runReviewBackfill = async (
       body: bodyPayload,
     });
 
-    const responseBody = (bulkResponse as unknown as { body?: Record<string, any> }).body ?? (bulkResponse as Record<string, any>);
-    const items = Array.isArray(responseBody?.items) ? responseBody.items : [];
+    const responseBody = (bulkResponse as unknown as { body?: Record<string, unknown> }).body ?? (bulkResponse as Record<string, unknown>);
+    const items = Array.isArray(responseBody?.items)
+      ? (responseBody.items as Record<string, unknown>[])
+      : [];
 
     if (items.length === 0) {
       indexed += chunk.length;

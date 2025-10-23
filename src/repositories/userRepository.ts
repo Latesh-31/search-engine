@@ -18,7 +18,7 @@ export interface UserRepository {
   deleteUser(id: string): Promise<User | null>;
 }
 
-const handleNotFound = <T>(error: unknown): null | never => {
+const handleNotFound = (error: unknown): null | never => {
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
     return null;
   }
@@ -40,14 +40,14 @@ export const createUserRepository = (prisma: PrismaClient): UserRepository => ({
     try {
       return await prisma.user.update({ where: { id }, data });
     } catch (error) {
-      return handleNotFound<User>(error);
+      return handleNotFound(error);
     }
   },
   async deleteUser(id) {
     try {
       return await prisma.user.delete({ where: { id } });
     } catch (error) {
-      return handleNotFound<User>(error);
+      return handleNotFound(error);
     }
   },
 });

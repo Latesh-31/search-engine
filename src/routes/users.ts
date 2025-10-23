@@ -1,8 +1,8 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
-import { AppServices } from '../services/domain';
 import { handleServiceError, sendNotFound, sendValidationError } from './helpers';
+import { AppServices } from '../services/domain';
 
 interface UserRoutesOptions {
   services: AppServices;

@@ -1,5 +1,6 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 
+import { EnqueueIndexingEvent, IndexingQueue, exponentialBackoff } from './queue';
 import {
   DeadLetterItem,
   IndexingFailureResolution,
@@ -7,7 +8,6 @@ import {
   IndexingOperation,
   RetryBackoffStrategy,
 } from './types';
-import { EnqueueIndexingEvent, IndexingQueue, exponentialBackoff } from './queue';
 
 const truncate = (value: string, limit = 1000): string => {
   if (value.length <= limit) {

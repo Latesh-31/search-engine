@@ -1,6 +1,6 @@
+import { Client, type ClientOptions } from '@opensearch-project/opensearch';
 import { readFileSync } from 'node:fs';
 
-import { Client, type ClientOptions } from '@opensearch-project/opensearch';
 
 import env from '../config/env';
 import {
@@ -114,7 +114,8 @@ export const getOpenSearchClient = (): Client => {
   return client;
 };
 
-export const getOpenSearchClient = (): Client => getClient();
+export const bootstrapOpenSearchInfrastructure = (logger: LoggerLike): Promise<BootstrapResult[]> =>
+  ensureOpenSearchInfrastructure(getOpenSearchClient(), logger);
 
 export const checkOpenSearchConnection = async (): Promise<ComponentHealth> => {
   if (env.NODE_ENV === 'test') {

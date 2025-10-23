@@ -1,4 +1,6 @@
 import { Client } from '@opensearch-project/opensearch';
+import { ReviewStatus } from '@prisma/client';
+
 import {
   InMemoryIndexingQueue,
   IndexingMetrics,
@@ -9,7 +11,6 @@ import {
   ReviewForIndexing,
   runReviewBackfill,
 } from '../src/indexing';
-import { ReviewStatus } from '@prisma/client';
 
 const createReview = (overrides: Partial<ReviewForIndexing> = {}): ReviewForIndexing => {
   const now = new Date('2024-01-01T00:00:00.000Z');
@@ -28,6 +29,11 @@ const createReview = (overrides: Partial<ReviewForIndexing> = {}): ReviewForInde
       id: 'user-1',
       email: 'user@example.com',
       displayName: 'User One',
+      compositeScore: null,
+      performanceScore: null,
+      activenessScore: null,
+      boostScore: null,
+      lastScoredAt: null,
       createdAt: now,
       updatedAt: now,
     },

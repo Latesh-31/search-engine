@@ -2,8 +2,8 @@ import { BoostType } from '@prisma/client';
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
-import { AppServices, BoostUsageInsufficientCreditsError } from '../services/domain';
 import { handleServiceError, sendNotFound, sendValidationError } from './helpers';
+import { AppServices, BoostUsageInsufficientCreditsError } from '../services/domain';
 
 interface BoostRoutesOptions {
   services: AppServices;

@@ -10,6 +10,7 @@ import {
   createReviewActivityRepository,
 } from './reviewActivityRepository';
 import { ReviewRepository, createReviewRepository } from './reviewRepository';
+import { ScoringRepository, createScoringRepository } from './scoringRepository';
 import { UserRepository, createUserRepository } from './userRepository';
 
 export interface AppRepositories {
@@ -18,6 +19,7 @@ export interface AppRepositories {
   activityRepository: ReviewActivityRepository;
   boostRepository: BoostRepository;
   categoryTierRepository: CategoryTierRepository;
+  scoringRepository: ScoringRepository;
 }
 
 export const createRepositories = (prisma: PrismaClient): AppRepositories => ({
@@ -26,4 +28,5 @@ export const createRepositories = (prisma: PrismaClient): AppRepositories => ({
   activityRepository: createReviewActivityRepository(prisma),
   boostRepository: createBoostRepository(prisma),
   categoryTierRepository: createCategoryTierRepository(prisma),
+  scoringRepository: createScoringRepository(prisma),
 });

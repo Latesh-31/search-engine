@@ -177,6 +177,19 @@ All domain endpoints perform input validation with `zod` and persist data throug
 | `GET` | `/category-tiers/:id` | Retrieve a category tier |
 | `PUT` | `/category-tiers/:id` | Update a category tier |
 | `DELETE` | `/category-tiers/:id` | Remove a category tier |
+| `GET` | `/scoring/:id` | Retrieve a user's composite score |
+| `POST` | `/scoring/:id/calculate` | Calculate user score without persisting |
+| `PUT` | `/scoring/:id` | Calculate and update user's composite score |
+
+## Composite Scoring Engine
+
+The service implements a configurable scoring engine that combines performance metrics, activity signals, and boost purchases into a normalized composite score per user. The score is calculated based on:
+
+- **Performance (40%)**: Average review rating, total reviews, and published reviews
+- **Activeness (30%)**: Weighted activity metrics (views, helpful votes, shares, comments, clicks)
+- **Boost (30%)**: Active boost credits with type-specific weights
+
+The weights are configurable in `src/config/scoring.ts` and can be adjusted to suit business requirements. Scores are normalized to a 0-1 range and stored in the User table for efficient retrieval during search ranking.
 
 ---
 

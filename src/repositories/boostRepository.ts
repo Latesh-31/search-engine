@@ -39,7 +39,7 @@ export interface BoostRepository {
   listBoostUsage(boostPurchaseId: string): Promise<BoostUsage[]>;
 }
 
-const handleNotFound = <T>(error: unknown): null | never => {
+const handleNotFound = (error: unknown): null | never => {
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
     return null;
   }
@@ -77,14 +77,14 @@ export const createBoostRepository = (prisma: PrismaClient): BoostRepository => 
     try {
       return await prisma.boostPurchase.update({ where: { id }, data });
     } catch (error) {
-      return handleNotFound<BoostPurchase>(error);
+      return handleNotFound(error);
     }
   },
   async deleteBoostPurchase(id) {
     try {
       return await prisma.boostPurchase.delete({ where: { id } });
     } catch (error) {
-      return handleNotFound<BoostPurchase>(error);
+      return handleNotFound(error);
     }
   },
   async createBoostUsage(data) {
