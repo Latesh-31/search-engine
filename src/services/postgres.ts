@@ -21,6 +21,8 @@ const getPool = (): Pool => {
   return pool;
 };
 
+export const getPostgresPool = (): Pool => getPool();
+
 export const checkPostgresConnection = async (): Promise<ComponentHealth> => {
   if (env.NODE_ENV === 'test') {
     return {
