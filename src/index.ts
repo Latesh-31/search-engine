@@ -1,7 +1,7 @@
 import env from './config/env';
 import { buildApp } from './app';
 import { getPrismaClient } from './services/prisma';
-import { getOpenSearchClient } from './services/opensearch';
+import { bootstrapOpenSearchInfrastructure, getOpenSearchClient } from './services/opensearch';
 import { getPostgresPool } from './services/postgres';
 import {
   createReviewIndexingPipeline,

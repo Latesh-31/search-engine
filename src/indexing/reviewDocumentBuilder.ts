@@ -1,73 +1,59 @@
-import { ActivityType, BoostType } from '@prisma/client';
+import type { ReviewForIndexing } from './reviewIndexingRepository';
+import type { AdBoostStatus, CategoryTierLevel, ReviewSearchDocument } from '../types/search';
 
-import { ReviewForIndexing } from './reviewIndexingRepository';
-
-export interface ReviewIndexDocument {
-  id: string;
-  title: string;
-  content: string;
-  rating: number;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-  author: {
-    id: string;
-    displayName: string;
-    email: string;
-  };
-  category: {
-    id: string;
-    name: string;
-    priority: number;
-  } | null;
-  activityTotals: Record<string, number>;
-  activityTotalQuantity: number;
-  boostCreditsByType: Record<string, number>;
-  boostCreditsConsumed: number;
-  boostCreditsPurchased: number;
-}
-
-const normaliseActivity = (metrics: ReviewForIndexing['activityCounts']): {
-  totals: Record<string, number>;
-  totalQuantity: number;
-} => {
-  const totals: Record<string, number> = {};
-  let totalQuantity = 0;
-
-  for (const metric of metrics) {
-    const key = metric.type.toLowerCase() as Lowercase<ActivityType>;
-    totals[key] = (totals[key] ?? 0) + metric.quantity;
-    totalQuantity += metric.quantity;
+const determineCategoryTierLevel = (priority: number): CategoryTierLevel => {
+  if (priority <= 33) {
+    return 'lower';
   }
 
-  return { totals, totalQuantity };
+  if (priority <= 66) {
+    return 'medium';
+  }
+
+  return 'higher';
 };
 
-const normaliseBoosts = (boosts: ReviewForIndexing['boostPurchases']): {
-  byType: Record<string, number>;
+const resolveCategoryTierLevel = (
+  priority: number | null | undefined,
+): CategoryTierLevel | null => {
+  if (priority === null || priority === undefined) {
+    return null;
+  }
+
+  return determineCategoryTierLevel(priority);
+};
+
+const calculateActivityTotalQuantity = (
+  metrics: ReviewForIndexing['activityCounts'],
+): number => metrics.reduce((sum, metric) => sum + metric.quantity, 0);
+
+const calculateBoostTotals = (boosts: ReviewForIndexing['boostPurchases']): {
   purchased: number;
   consumed: number;
-} => {
-  const byType: Record<string, number> = {};
-  let purchased = 0;
-  let consumed = 0;
+} =>
+  boosts.reduce(
+    (totals, boost) => {
+      totals.purchased += boost.creditsPurchased;
+      totals.consumed += boost.creditsConsumed;
+      return totals;
+    },
+    { purchased: 0, consumed: 0 },
+  );
 
-  for (const boost of boosts) {
-    const key = boost.boostType.toLowerCase() as Lowercase<BoostType>;
-    byType[key] = (byType[key] ?? 0) + boost.creditsPurchased;
-    purchased += boost.creditsPurchased;
-    consumed += boost.creditsConsumed;
-  }
+const resolveAdBoostStatus = (remainingCredits: number): AdBoostStatus =>
+  remainingCredits > 0 ? 'boosted' : 'organic';
 
-  return { byType, purchased, consumed };
-};
-
-export const buildReviewDocument = (review: ReviewForIndexing): ReviewIndexDocument => {
-  const activity = normaliseActivity(review.activityCounts);
-  const boosts = normaliseBoosts(review.boostPurchases);
+export const buildReviewDocument = (review: ReviewForIndexing): ReviewSearchDocument => {
+  const activityTotalQuantity = calculateActivityTotalQuantity(review.activityCounts);
+  const boostTotals = calculateBoostTotals(review.boostPurchases);
+  const boostCreditsRemaining = Math.max(boostTotals.purchased - boostTotals.consumed, 0);
+  const adBoostStatus = resolveAdBoostStatus(boostCreditsRemaining);
 
   return {
     id: review.id,
+    userId: review.userId,
+    categoryTierId: review.categoryTierId ?? null,
+    categoryTierLevel: resolveCategoryTierLevel(review.categoryTier?.priority),
     title: review.title,
     content: review.content,
     rating: review.rating,
@@ -75,7 +61,7 @@ export const buildReviewDocument = (review: ReviewForIndexing): ReviewIndexDocum
     createdAt: review.createdAt.toISOString(),
     updatedAt: review.updatedAt.toISOString(),
     author: {
-      id: review.userId,
+      id: review.user.id,
       displayName: review.user.displayName,
       email: review.user.email,
     },
@@ -86,10 +72,10 @@ export const buildReviewDocument = (review: ReviewForIndexing): ReviewIndexDocum
           priority: review.categoryTier.priority,
         }
       : null,
-    activityTotals: activity.totals,
-    activityTotalQuantity: activity.totalQuantity,
-    boostCreditsByType: boosts.byType,
-    boostCreditsConsumed: boosts.consumed,
-    boostCreditsPurchased: boosts.purchased,
-  };
+    activityTotalQuantity,
+    boostCreditsPurchased: boostTotals.purchased,
+    boostCreditsConsumed: boostTotals.consumed,
+    boostCreditsRemaining,
+    adBoostStatus,
+  } satisfies ReviewSearchDocument;
 };

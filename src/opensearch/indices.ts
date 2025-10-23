@@ -50,6 +50,10 @@ const reviewMappings = {
     id: { type: 'keyword' },
     userId: { type: 'keyword' },
     categoryTierId: { type: 'keyword' },
+    categoryTierLevel: {
+      type: 'keyword',
+      normalizer: 'keyword_lowercase',
+    },
     title: {
       type: 'text',
       analyzer: 'folded',
@@ -73,6 +77,43 @@ const reviewMappings = {
     },
     createdAt: { type: 'date' },
     updatedAt: { type: 'date' },
+    author: {
+      properties: {
+        id: { type: 'keyword' },
+        displayName: {
+          type: 'text',
+          analyzer: 'folded',
+          fields: {
+            keyword: { type: 'keyword', ignore_above: 256 },
+          },
+        },
+        email: {
+          type: 'keyword',
+          normalizer: 'keyword_lowercase',
+        },
+      },
+    },
+    category: {
+      properties: {
+        id: { type: 'keyword' },
+        name: {
+          type: 'text',
+          analyzer: 'folded',
+          fields: {
+            keyword: { type: 'keyword', ignore_above: 256 },
+          },
+        },
+        priority: { type: 'integer' },
+      },
+    },
+    activityTotalQuantity: { type: 'integer' },
+    boostCreditsPurchased: { type: 'integer' },
+    boostCreditsConsumed: { type: 'integer' },
+    boostCreditsRemaining: { type: 'integer' },
+    adBoostStatus: {
+      type: 'keyword',
+      normalizer: 'keyword_lowercase',
+    },
     helpfulVoteCount: { type: 'long' },
     viewCount: { type: 'long' },
     averageSentiment: { type: 'half_float' },
