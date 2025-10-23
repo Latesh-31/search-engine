@@ -1,12 +1,12 @@
-import env from './config/env';
 import { buildApp } from './app';
-import { getPrismaClient } from './services/prisma';
-import { getOpenSearchClient } from './services/opensearch';
-import { getPostgresPool } from './services/postgres';
+import env from './config/env';
 import {
   createReviewIndexingPipeline,
   type ReviewIndexingPipelineControls,
 } from './indexing';
+import { bootstrapOpenSearchInfrastructure, getOpenSearchClient } from './services/opensearch';
+import { getPostgresPool } from './services/postgres';
+import { getPrismaClient } from './services/prisma';
 
 const REVIEW_INDEX_NAME = 'reviews';
 

@@ -1,13 +1,13 @@
 import { Client, errors } from '@opensearch-project/opensearch';
 
+import { buildReviewDocument } from './reviewDocumentBuilder';
+import { ReviewIndexingRepository } from './reviewIndexingRepository';
 import {
   IndexingJob,
   IndexingJobResult,
   IndexingLogger,
   IndexingOperation,
 } from './types';
-import { ReviewIndexingRepository } from './reviewIndexingRepository';
-import { buildReviewDocument } from './reviewDocumentBuilder';
 
 export interface ReviewIndexingHandlerOptions {
   indexName: string;

@@ -1,9 +1,9 @@
-import { FastifyPluginAsync } from 'fastify';
 import { ReviewStatus } from '@prisma/client';
+import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
-import { AppServices } from '../services/domain';
 import { handleServiceError, sendNotFound, sendValidationError } from './helpers';
+import { AppServices } from '../services/domain';
 
 interface ReviewRoutesOptions {
   services: AppServices;

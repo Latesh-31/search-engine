@@ -19,7 +19,7 @@ export interface ReviewRepository {
   deleteReview(id: string): Promise<Review | null>;
 }
 
-const handleNotFound = <T>(error: unknown): null | never => {
+const handleNotFound = (error: unknown): null | never => {
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
     return null;
   }
@@ -55,14 +55,14 @@ export const createReviewRepository = (prisma: PrismaClient): ReviewRepository =
     try {
       return await prisma.review.update({ where: { id }, data });
     } catch (error) {
-      return handleNotFound<Review>(error);
+      return handleNotFound(error);
     }
   },
   async deleteReview(id) {
     try {
       return await prisma.review.delete({ where: { id } });
     } catch (error) {
-      return handleNotFound<Review>(error);
+      return handleNotFound(error);
     }
   },
 });

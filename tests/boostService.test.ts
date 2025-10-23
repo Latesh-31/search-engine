@@ -1,14 +1,14 @@
 import { BoostType } from '@prisma/client';
 
 import {
+  BoostRepository,
+  InsufficientBoostCreditsError,
+} from '../src/repositories/boostRepository';
+import {
   BoostService,
   BoostUsageInsufficientCreditsError,
   createBoostService,
 } from '../src/services/domain';
-import {
-  BoostRepository,
-  InsufficientBoostCreditsError,
-} from '../src/repositories/boostRepository';
 
 const createRepositoryMock = (): jest.Mocked<BoostRepository> => ({
   createBoostPurchase: jest.fn(),

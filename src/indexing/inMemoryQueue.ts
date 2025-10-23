@@ -1,5 +1,5 @@
-import { DeadLetterItem, IndexingJob, RetryBackoffStrategy } from './types';
 import { EnqueueIndexingEvent, IndexingQueue, exponentialBackoff } from './queue';
+import { DeadLetterItem, IndexingJob, RetryBackoffStrategy } from './types';
 
 interface InternalJob extends IndexingJob {
   processing: boolean;

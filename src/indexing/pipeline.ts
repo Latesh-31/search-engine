@@ -1,15 +1,15 @@
 import { Client } from '@opensearch-project/opensearch';
+import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 
-import { IndexingMetrics } from './metrics';
 import { PostgresChangeSubscriber, PostgresChangeSubscriberOptions } from './changeSubscriber';
+import { IndexingMetrics } from './metrics';
 import { PrismaIndexingQueue, PrismaIndexingQueueOptions } from './prismaQueue';
+import { IndexingQueue } from './queue';
 import { ReviewIndexingHandler } from './reviewIndexingHandler';
 import { ReviewIndexingRepository } from './reviewIndexingRepository';
-import { IndexingQueue } from './queue';
 import { IndexingLogger } from './types';
 import { IndexingWorker, IndexingWorkerOptions } from './worker';
-import { PrismaClient } from '@prisma/client';
 
 export interface ReviewIndexingPipelineOptions {
   indexName: string;

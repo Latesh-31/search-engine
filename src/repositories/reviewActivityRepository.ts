@@ -26,7 +26,7 @@ export interface ReviewActivityRepository {
   deleteActivity(id: string): Promise<ReviewActivityMetric | null>;
 }
 
-const handleNotFound = <T>(error: unknown): null | never => {
+const handleNotFound = (error: unknown): null | never => {
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
     return null;
   }
@@ -53,14 +53,14 @@ export const createReviewActivityRepository = (
     try {
       return await prisma.reviewActivityMetric.update({ where: { id }, data });
     } catch (error) {
-      return handleNotFound<ReviewActivityMetric>(error);
+      return handleNotFound(error);
     }
   },
   async deleteActivity(id) {
     try {
       return await prisma.reviewActivityMetric.delete({ where: { id } });
     } catch (error) {
-      return handleNotFound<ReviewActivityMetric>(error);
+      return handleNotFound(error);
     }
   },
 });
