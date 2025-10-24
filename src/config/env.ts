@@ -4,6 +4,21 @@ import { z } from 'zod';
 dotenv.config();
 
 const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const;
+const BOOLEAN_STRINGS = ['true', 'false'] as const;
+
+const optionalUrl = (message: string) =>
+  z
+    .string()
+    .url({ message })
+    .optional()
+    .transform((value) => (value && value.length > 0 ? value : undefined));
+
+const optionalString = z
+  .string()
+  .optional()
+  .transform((value) => (value && value.length > 0 ? value : undefined));
+
+const booleanFlag = z.enum(BOOLEAN_STRINGS).transform((value) => value === 'true');
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -15,48 +30,28 @@ const envSchema = z.object({
   POSTGRES_DB: z.string().min(1).default('search_service'),
   POSTGRES_USER: z.string().min(1).default('search_user'),
   POSTGRES_PASSWORD: z.string().min(1).default('search_password'),
-  DATABASE_URL: z
-    .string()
-    .url({ message: 'DATABASE_URL must be a valid connection string' })
-    .optional()
-    .transform((value) => (value && value.length > 0 ? value : undefined)),
-  SHADOW_DATABASE_URL: z
-    .string()
-    .url({ message: 'SHADOW_DATABASE_URL must be a valid connection string' })
-    .optional()
-    .transform((value) => (value && value.length > 0 ? value : undefined)),
+  DATABASE_URL: optionalUrl('DATABASE_URL must be a valid connection string'),
+  SHADOW_DATABASE_URL: optionalUrl('SHADOW_DATABASE_URL must be a valid connection string'),
   OPENSEARCH_NODE: z
     .string()
     .url({ message: 'OPENSEARCH_NODE must be a valid URL' })
     .default('http://opensearch:9200'),
-  OPENSEARCH_USERNAME: z
-    .string()
-    .optional()
-    .transform((value) => (value && value.length > 0 ? value : undefined)),
-  OPENSEARCH_PASSWORD: z
-    .string()
-    .optional()
-    .transform((value) => (value && value.length > 0 ? value : undefined)),
-  OPENSEARCH_USERNAME_FILE: z
-    .string()
-    .optional()
-    .transform((value) => (value && value.length > 0 ? value : undefined)),
-  OPENSEARCH_PASSWORD_FILE: z
-    .string()
-    .optional()
-    .transform((value) => (value && value.length > 0 ? value : undefined)),
-  OPENSEARCH_CA_CERT_PATH: z
-    .string()
-    .optional()
-    .transform((value) => (value && value.length > 0 ? value : undefined)),
+  OPENSEARCH_USERNAME: optionalString,
+  OPENSEARCH_PASSWORD: optionalString,
+  OPENSEARCH_USERNAME_FILE: optionalString,
+  OPENSEARCH_PASSWORD_FILE: optionalString,
+  OPENSEARCH_CA_CERT_PATH: optionalString,
   OPENSEARCH_TLS_REJECT_UNAUTHORIZED: z
-    .enum(['true', 'false'])
+    .enum(BOOLEAN_STRINGS)
     .optional()
     .transform((value) => (value === undefined ? undefined : value === 'true')),
-  OPENSEARCH_BOOTSTRAP_ENABLED: z
-    .enum(['true', 'false'])
-    .default('true')
-    .transform((value) => value === 'true'),
+  OPENSEARCH_BOOTSTRAP_ENABLED: z.enum(BOOLEAN_STRINGS).default('true').transform((value) => value === 'true'),
+  OTEL_ENABLED: z.enum(BOOLEAN_STRINGS).default('false').transform((value) => value === 'true'),
+  OTEL_SERVICE_NAME: z.string().min(1).default('search-platform-api'),
+  OTEL_EXPORTER_OTLP_ENDPOINT: optionalUrl('OTEL_EXPORTER_OTLP_ENDPOINT must be a valid URL'),
+  OTEL_EXPORTER_OTLP_HEADERS: optionalString,
+  OTEL_METRICS_PORT: z.coerce.number().int().positive().default(9464),
+  OTEL_METRICS_ENDPOINT: z.string().min(1).default('/metrics'),
 });
 
 const parsed = envSchema.safeParse(process.env);

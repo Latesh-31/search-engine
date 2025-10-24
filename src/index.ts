@@ -7,10 +7,13 @@ import {
   createReviewIndexingPipeline,
   type ReviewIndexingPipelineControls,
 } from './indexing';
+import { initializeTelemetry, shutdownTelemetry } from './telemetry';
 
 const REVIEW_INDEX_NAME = 'reviews';
 
 const start = async () => {
+  await initializeTelemetry();
+
   const app = buildApp();
 
   let pipeline: ReviewIndexingPipelineControls | undefined;
@@ -35,6 +38,7 @@ const start = async () => {
       app.log.info('Review indexing pipeline started');
     } catch (error) {
       app.log.error(error, 'Failed to start review indexing pipeline');
+      await shutdownTelemetry();
       process.exit(1);
     }
   }
@@ -55,9 +59,16 @@ const start = async () => {
         await pipeline.stop();
       }
       await app.close();
+      await shutdownTelemetry();
+      app.log.info('Graceful shutdown completed');
       process.exit(0);
     } catch (error) {
       app.log.error(error, 'Error during graceful shutdown');
+      try {
+        await shutdownTelemetry();
+      } catch (telemetryError) {
+        app.log.error(telemetryError, 'Failed to shut down telemetry after shutdown error');
+      }
       process.exit(1);
     }
   };
@@ -85,6 +96,7 @@ const start = async () => {
         app.log.error(stopError, 'Failed to stop indexing pipeline after server start failure');
       }
     }
+    await shutdownTelemetry();
     process.exit(1);
   }
 };

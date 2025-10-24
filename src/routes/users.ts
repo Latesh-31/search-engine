@@ -2,7 +2,6 @@ import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
 import { AppServices } from '../services/domain';
-import { handleServiceError, sendNotFound, sendValidationError } from './helpers';
 
 interface UserRoutesOptions {
   services: AppServices;
@@ -21,86 +20,93 @@ const updateUserSchema = createUserSchema.partial().refine((data) => Object.keys
   message: 'At least one field must be provided to update a user.',
 });
 
+type UserIdParams = z.infer<typeof userIdParamsSchema>;
+type CreateUserBody = z.infer<typeof createUserSchema>;
+type UpdateUserBody = z.infer<typeof updateUserSchema>;
+
 const userRoutes: FastifyPluginAsync<UserRoutesOptions> = async (fastify, options) => {
   const { userService } = options.services;
 
-  fastify.get('/', async (_, reply) => {
+  fastify.get('/', async () => {
     const users = await userService.listUsers();
-    return reply.send({ data: users });
+    return { data: users };
   });
 
-  fastify.post('/', async (request, reply) => {
-    const parsed = createUserSchema.safeParse(request.body);
-
-    if (!parsed.success) {
-      return sendValidationError(reply, 'Invalid user payload.', parsed.error.format());
-    }
-
-    try {
-      const user = await userService.createUser(parsed.data);
+  fastify.post<{ Body: CreateUserBody }>(
+    '/',
+    {
+      config: {
+        validation: {
+          body: createUserSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const user = await userService.createUser(request.body);
       return reply.code(201).send({ data: user });
-    } catch (error) {
-      return handleServiceError(reply, error);
-    }
-  });
+    },
+  );
 
-  fastify.get('/:id', async (request, reply) => {
-    const parsedParams = userIdParamsSchema.safeParse(request.params);
-
-    if (!parsedParams.success) {
-      return sendValidationError(reply, 'Invalid user identifier.', parsedParams.error.format());
-    }
-
-    const user = await userService.getUser(parsedParams.data.id);
-
-    if (!user) {
-      return sendNotFound(reply, 'User');
-    }
-
-    return reply.send({ data: user });
-  });
-
-  fastify.put('/:id', async (request, reply) => {
-    const parsedParams = userIdParamsSchema.safeParse(request.params);
-
-    if (!parsedParams.success) {
-      return sendValidationError(reply, 'Invalid user identifier.', parsedParams.error.format());
-    }
-
-    const parsedBody = updateUserSchema.safeParse(request.body);
-
-    if (!parsedBody.success) {
-      return sendValidationError(reply, 'Invalid user payload.', parsedBody.error.format());
-    }
-
-    try {
-      const user = await userService.updateUser(parsedParams.data.id, parsedBody.data);
+  fastify.get<{ Params: UserIdParams }>(
+    '/:id',
+    {
+      config: {
+        validation: {
+          params: userIdParamsSchema,
+        },
+      },
+    },
+    async (request) => {
+      const user = await userService.getUser(request.params.id);
 
       if (!user) {
-        return sendNotFound(reply, 'User');
+        throw fastify.httpErrors.notFound('User not found.');
       }
 
-      return reply.send({ data: user });
-    } catch (error) {
-      return handleServiceError(reply, error);
-    }
-  });
+      return { data: user };
+    },
+  );
 
-  fastify.delete('/:id', async (request, reply) => {
-    const parsedParams = userIdParamsSchema.safeParse(request.params);
+  fastify.put<{ Params: UserIdParams; Body: UpdateUserBody }>(
+    '/:id',
+    {
+      config: {
+        validation: {
+          params: userIdParamsSchema,
+          body: updateUserSchema,
+        },
+      },
+    },
+    async (request) => {
+      const user = await userService.updateUser(request.params.id, request.body);
 
-    if (!parsedParams.success) {
-      return sendValidationError(reply, 'Invalid user identifier.', parsedParams.error.format());
-    }
+      if (!user) {
+        throw fastify.httpErrors.notFound('User not found.');
+      }
 
-    const deleted = await userService.deleteUser(parsedParams.data.id);
+      return { data: user };
+    },
+  );
 
-    if (!deleted) {
-      return sendNotFound(reply, 'User');
-    }
+  fastify.delete<{ Params: UserIdParams }>(
+    '/:id',
+    {
+      config: {
+        validation: {
+          params: userIdParamsSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const deleted = await userService.deleteUser(request.params.id);
 
-    return reply.status(204).send();
-  });
+      if (!deleted) {
+        throw fastify.httpErrors.notFound('User not found.');
+      }
+
+      return reply.status(204).send();
+    },
+  );
 };
 
 export default userRoutes;

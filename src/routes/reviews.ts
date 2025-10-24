@@ -3,7 +3,6 @@ import { ReviewStatus } from '@prisma/client';
 import { z } from 'zod';
 
 import { AppServices } from '../services/domain';
-import { handleServiceError, sendNotFound, sendValidationError } from './helpers';
 
 interface ReviewRoutesOptions {
   services: AppServices;
@@ -31,86 +30,93 @@ const updateReviewSchema = reviewFieldsSchema
     message: 'At least one field must be provided to update a review.',
   });
 
+type ReviewIdParams = z.infer<typeof reviewIdParamsSchema>;
+type CreateReviewBody = z.infer<typeof createReviewSchema>;
+type UpdateReviewBody = z.infer<typeof updateReviewSchema>;
+
 const reviewRoutes: FastifyPluginAsync<ReviewRoutesOptions> = async (fastify, options) => {
   const { reviewService } = options.services;
 
-  fastify.get('/', async (_, reply) => {
+  fastify.get('/', async () => {
     const reviews = await reviewService.listReviews();
-    return reply.send({ data: reviews });
+    return { data: reviews };
   });
 
-  fastify.post('/', async (request, reply) => {
-    const parsed = createReviewSchema.safeParse(request.body);
-
-    if (!parsed.success) {
-      return sendValidationError(reply, 'Invalid review payload.', parsed.error.format());
-    }
-
-    try {
-      const review = await reviewService.createReview(parsed.data);
+  fastify.post<{ Body: CreateReviewBody }>(
+    '/',
+    {
+      config: {
+        validation: {
+          body: createReviewSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const review = await reviewService.createReview(request.body);
       return reply.code(201).send({ data: review });
-    } catch (error) {
-      return handleServiceError(reply, error);
-    }
-  });
+    },
+  );
 
-  fastify.get('/:id', async (request, reply) => {
-    const parsedParams = reviewIdParamsSchema.safeParse(request.params);
-
-    if (!parsedParams.success) {
-      return sendValidationError(reply, 'Invalid review identifier.', parsedParams.error.format());
-    }
-
-    const review = await reviewService.getReview(parsedParams.data.id);
-
-    if (!review) {
-      return sendNotFound(reply, 'Review');
-    }
-
-    return reply.send({ data: review });
-  });
-
-  fastify.put('/:id', async (request, reply) => {
-    const parsedParams = reviewIdParamsSchema.safeParse(request.params);
-
-    if (!parsedParams.success) {
-      return sendValidationError(reply, 'Invalid review identifier.', parsedParams.error.format());
-    }
-
-    const parsedBody = updateReviewSchema.safeParse(request.body);
-
-    if (!parsedBody.success) {
-      return sendValidationError(reply, 'Invalid review payload.', parsedBody.error.format());
-    }
-
-    try {
-      const review = await reviewService.updateReview(parsedParams.data.id, parsedBody.data);
+  fastify.get<{ Params: ReviewIdParams }>(
+    '/:id',
+    {
+      config: {
+        validation: {
+          params: reviewIdParamsSchema,
+        },
+      },
+    },
+    async (request) => {
+      const review = await reviewService.getReview(request.params.id);
 
       if (!review) {
-        return sendNotFound(reply, 'Review');
+        throw fastify.httpErrors.notFound('Review not found.');
       }
 
-      return reply.send({ data: review });
-    } catch (error) {
-      return handleServiceError(reply, error);
-    }
-  });
+      return { data: review };
+    },
+  );
 
-  fastify.delete('/:id', async (request, reply) => {
-    const parsedParams = reviewIdParamsSchema.safeParse(request.params);
+  fastify.put<{ Params: ReviewIdParams; Body: UpdateReviewBody }>(
+    '/:id',
+    {
+      config: {
+        validation: {
+          params: reviewIdParamsSchema,
+          body: updateReviewSchema,
+        },
+      },
+    },
+    async (request) => {
+      const review = await reviewService.updateReview(request.params.id, request.body);
 
-    if (!parsedParams.success) {
-      return sendValidationError(reply, 'Invalid review identifier.', parsedParams.error.format());
-    }
+      if (!review) {
+        throw fastify.httpErrors.notFound('Review not found.');
+      }
 
-    const deleted = await reviewService.deleteReview(parsedParams.data.id);
+      return { data: review };
+    },
+  );
 
-    if (!deleted) {
-      return sendNotFound(reply, 'Review');
-    }
+  fastify.delete<{ Params: ReviewIdParams }>(
+    '/:id',
+    {
+      config: {
+        validation: {
+          params: reviewIdParamsSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const deleted = await reviewService.deleteReview(request.params.id);
 
-    return reply.status(204).send();
-  });
+      if (!deleted) {
+        throw fastify.httpErrors.notFound('Review not found.');
+      }
+
+      return reply.status(204).send();
+    },
+  );
 };
 
 export default reviewRoutes;
