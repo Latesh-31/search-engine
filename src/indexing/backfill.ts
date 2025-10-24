@@ -67,7 +67,9 @@ export const runReviewBackfill = async (
       body: bodyPayload,
     });
 
-    const responseBody = (bulkResponse as unknown as { body?: Record<string, unknown> }).body ?? (bulkResponse as Record<string, unknown>);
+    const responseBody =
+      (bulkResponse as unknown as { body?: Record<string, unknown> }).body ??
+      (bulkResponse as unknown as Record<string, unknown>);
     const items = Array.isArray(responseBody?.items)
       ? (responseBody.items as Record<string, unknown>[])
       : [];
