@@ -13,7 +13,13 @@ coverage/
 .env
 .env.local
 .env.production
+.env.staging
 .env.test
+
+# Terraform state
+infra/terraform/.terraform/
+infra/terraform/terraform.tfstate*
+infra/terraform/crash.log
 
 # Logs and diagnostics
 npm-debug.log*

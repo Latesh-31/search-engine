@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: search-platform-api
+  annotations:
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:000000000000:certificate/staging
+spec:
+  tls:
+    - hosts:
+        - api-staging.example.com
+      secretName: search-platform-api-staging-cert
+  rules:
+    - host: api-staging.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: search-platform-api
+                port:
+                  name: http

@@ -17,6 +17,7 @@ Production-ready Fastify service written in TypeScript that exposes baseline hea
 - 🎯 **Centralized error handling** with structured error responses
 - 🔍 **Structured logging** via Pino with request/response correlation
 - 🚦 **Graceful shutdown** handling with proper cleanup of resources
+- 🚀 **CI/CD + infrastructure-as-code** for automated EKS deployments on AWS
 - 📖 **Comprehensive documentation** for operations and troubleshooting
 
 ## Getting Started
@@ -97,13 +98,25 @@ docker compose down --volumes
 │   ├── routes/             # HTTP route definitions
 │   ├── services/           # Connectivity helpers (Postgres/OpenSearch)
 │   └── index.ts            # Application bootstrap entry point
-├── docs/                   # Operations and troubleshooting guides
+├── docs/                   # Operations, troubleshooting, and deployment guides
+├── deploy/kubernetes/      # Base manifests + environment overlays for EKS
+├── infra/terraform/        # AWS infrastructure-as-code modules
 ├── tests/                  # Jest test suites
 ├── docker-compose.yml      # Local development stack
+├── docker-compose.prod.yml # Production compose stack (Swarm compatible)
 ├── Dockerfile              # Production-ready container image
 ├── tsconfig*.json          # TypeScript build configurations
 └── ...                     # Linting, formatting, and tooling configs
 ```
+
+## CI/CD & Production Deployment
+
+- **CI pipeline** (`.github/workflows/ci.yml`): linting, type checking, tests, npm audit, and Trivy scans on every push/PR.
+- **Deployment pipeline** (`.github/workflows/deploy.yml`): builds/pushes Docker images to Amazon ECR, applies Kubernetes overlays, executes Prisma migrations, runs smoke tests, and rolls back on failure.
+- **Infrastructure** (`infra/terraform`): provisions VPC, EKS, RDS, OpenSearch, Secrets Manager, IAM, CloudWatch, and ECR. See [`infra/terraform/README.md`](./infra/terraform/README.md).
+- **Manifests** (`deploy/kubernetes`): base resources + environment overlays that configure namespaces, ingress, HPA, IAM annotations, and secrets via External Secrets.
+- **Docker Compose** (`docker-compose.prod.yml`): Swarm-compatible stack with resource limits, awslogs integration, and a dedicated migration profile for one-off tasks.
+- **Documentation**: follow the end-to-end [Deployment Guide](./docs/DEPLOYMENT.md) for operational runbooks and rollback procedures.
 
 ## OpenSearch Integration
 
