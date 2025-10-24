@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: search-platform-api-config
+  labels:
+    environment: staging
+data:
+  NODE_ENV: production
+  LOG_LEVEL: debug
+  OTEL_ENABLED: "true"
+  OPENSEARCH_BOOTSTRAP_ENABLED: "false"

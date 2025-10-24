@@ -1,0 +1,70 @@
+version: '3.9'
+
+x-api-base: &api-base
+  image: ${API_IMAGE:-000000000000.dkr.ecr.us-east-1.amazonaws.com/search-platform-api:latest}
+  env_file:
+    - .env.production
+  environment:
+    NODE_ENV: production
+    PORT: 3000
+    DATABASE_URL_FILE: /run/secrets/db_url
+    OPENSEARCH_USERNAME_FILE: /run/secrets/opensearch_username
+    OPENSEARCH_PASSWORD_FILE: /run/secrets/opensearch_password
+  secrets:
+    - db_url
+    - opensearch_username
+    - opensearch_password
+  ports:
+    - '${API_HTTP_PORT:-8080}:3000'
+  healthcheck:
+    test: ['CMD-SHELL', 'curl -sf http://localhost:3000/health || exit 1']
+    interval: 30s
+    timeout: 5s
+    retries: 5
+    start_period: 30s
+  deploy:
+    mode: replicated
+    replicas: ${API_REPLICAS:-3}
+    restart_policy:
+      condition: on-failure
+      delay: 10s
+      max_attempts: 3
+    update_config:
+      order: start-first
+      parallelism: 1
+      failure_action: rollback
+    resources:
+      limits:
+        cpus: '2.0'
+        memory: 2048M
+      reservations:
+        cpus: '0.5'
+        memory: 512M
+  logging:
+    driver: awslogs
+    options:
+      awslogs-region: ${AWS_REGION:-us-east-1}
+      awslogs-group: ${AWS_LOG_GROUP:-/search-platform/api}
+      awslogs-create-group: 'true'
+
+services:
+  api:
+    <<: *api-base
+
+  migrate:
+    <<: *api-base
+    command: ['npm', 'run', 'prisma:migrate:deploy']
+    healthcheck: null
+    deploy:
+      restart_policy:
+        condition: none
+    profiles:
+      - ops
+
+secrets:
+  db_url:
+    external: true
+  opensearch_username:
+    external: true
+  opensearch_password:
+    external: true

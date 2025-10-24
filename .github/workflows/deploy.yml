@@ -1,0 +1,206 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment"
+        type: choice
+        required: true
+        default: staging
+        options:
+          - staging
+          - production
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to ${{ github.event_name == 'workflow_dispatch' && inputs.environment || (startsWith(github.ref, 'refs/tags/v') && 'production') || 'staging' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    env:
+      AWS_REGION: us-east-1
+      ECR_REPOSITORY: search-platform-api
+      DEPLOY_ENV: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || (startsWith(github.ref, 'refs/tags/v') && 'production') || 'staging' }}
+      STAGING_K8S_NAMESPACE: search-platform-staging
+      PRODUCTION_K8S_NAMESPACE: search-platform-production
+      STAGING_KUSTOMIZE_PATH: deploy/kubernetes/overlays/staging
+      PRODUCTION_KUSTOMIZE_PATH: deploy/kubernetes/overlays/production
+      IMAGE_TAG: ${{ github.sha }}
+    environment:
+      name: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || (startsWith(github.ref, 'refs/tags/v') && 'production') || 'staging' }}
+    steps:
+      - name: Validate deployment environment
+        if: env.DEPLOY_ENV == ''
+        run: |
+          echo "Unable to infer deployment environment"
+          exit 1
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: deploy-search-platform
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set deployment context
+        id: context
+        run: |
+          if [ "${DEPLOY_ENV}" = "production" ]; then
+            echo "namespace=${PRODUCTION_K8S_NAMESPACE}" >> "$GITHUB_OUTPUT"
+            echo "kustomize_path=${PRODUCTION_KUSTOMIZE_PATH}" >> "$GITHUB_OUTPUT"
+            echo "cluster_name=${{ secrets.PRODUCTION_EKS_CLUSTER_NAME }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "namespace=${STAGING_K8S_NAMESPACE}" >> "$GITHUB_OUTPUT"
+            echo "kustomize_path=${STAGING_KUSTOMIZE_PATH}" >> "$GITHUB_OUTPUT"
+            echo "cluster_name=${{ secrets.STAGING_EKS_CLUSTER_NAME }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Ensure cluster name is set
+        run: |
+          if [ -z "${{ steps.context.outputs.cluster_name }}" ]; then
+            echo "Cluster name secret is not configured for ${DEPLOY_ENV}."
+            exit 1
+          fi
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name "${{ steps.context.outputs.cluster_name }}" --region "${AWS_REGION}"
+
+      - name: Derive image metadata
+        id: image
+        run: |
+          IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${ECR_REPOSITORY}:${DEPLOY_ENV}-${IMAGE_TAG}"
+          echo "uri=${IMAGE_URI}" >> "$GITHUB_OUTPUT"
+          echo "latest=${{ steps.login-ecr.outputs.registry }}/${ECR_REPOSITORY}:${DEPLOY_ENV}-latest" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          tags: |
+            ${{ steps.image.outputs.uri }}
+            ${{ steps.image.outputs.latest }}
+          cache-from: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:buildcache
+          cache-to: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:buildcache,mode=max
+
+      - name: Apply Kubernetes manifests
+        run: |
+          kubectl apply -k "${{ steps.context.outputs.kustomize_path }}"
+
+      - name: Wait for secret sync
+        run: |
+          for i in $(seq 1 30); do
+            if kubectl get secret search-platform-api-secrets --namespace "${{ steps.context.outputs.namespace }}" >/dev/null 2>&1; then
+              echo "Secret search-platform-api-secrets is ready."
+              exit 0
+            fi
+            echo "Waiting for search-platform-api-secrets to be created (${i}/30)..."
+            sleep 10
+          done
+          echo "Timed out waiting for search-platform-api-secrets"
+          exit 1
+
+      - name: Run database migrations
+        run: |
+          JOB_NAME="prisma-migrate-${GITHUB_RUN_ID}"
+          cat <<EOF | kubectl apply -f -
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: ${JOB_NAME}
+            namespace: ${NAMESPACE}
+            labels:
+              app.kubernetes.io/name: search-platform-api
+              app.kubernetes.io/component: migration
+          spec:
+            ttlSecondsAfterFinished: 120
+            backoffLimit: 0
+            template:
+              metadata:
+                labels:
+                  app.kubernetes.io/name: search-platform-api
+                  app.kubernetes.io/component: migration
+              spec:
+                serviceAccountName: search-platform-api
+                restartPolicy: Never
+                containers:
+                  - name: migrate
+                    image: ${IMAGE_URI}
+                    command: ["npm", "run", "prisma:migrate:deploy"]
+                    envFrom:
+                      - configMapRef:
+                          name: search-platform-api-config
+                      - secretRef:
+                          name: search-platform-api-secrets
+          EOF
+          kubectl wait --for=condition=complete job/${JOB_NAME} --namespace "${NAMESPACE}" --timeout=5m
+          kubectl delete job ${JOB_NAME} --namespace "${NAMESPACE}" --ignore-not-found=true
+        env:
+          IMAGE_URI: ${{ steps.image.outputs.uri }}
+          NAMESPACE: ${{ steps.context.outputs.namespace }}
+
+      - name: Update deployment image
+        run: |
+          kubectl set image deployment/search-platform-api api=${{ steps.image.outputs.uri }} --namespace "${{ steps.context.outputs.namespace }}"
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/search-platform-api --namespace "${{ steps.context.outputs.namespace }}" --timeout=5m
+
+      - name: Smoke test service
+        run: |
+          CLUSTER_IP=$(kubectl get svc search-platform-api --namespace "${{ steps.context.outputs.namespace }}" -o jsonpath='{.spec.clusterIP}')
+          kubectl run smoke-test --namespace "${{ steps.context.outputs.namespace }}" --restart=Never --image=curlimages/curl:8.11.1 --rm --attach --command -- sh -c "curl -sf http://$CLUSTER_IP:3000/health"
+
+      - name: Notify success
+        if: success() && secrets.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": "Deployment to ${DEPLOY_ENV} succeeded for commit ${{ github.sha }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          kubectl rollout undo deployment/search-platform-api --namespace "${{ steps.context.outputs.namespace }}"
+
+      - name: Notify failure
+        if: failure() && secrets.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": "Deployment to ${DEPLOY_ENV} failed for commit ${{ github.sha }}. Rollback initiated."
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
